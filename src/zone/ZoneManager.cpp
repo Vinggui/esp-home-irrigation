@@ -1,14 +1,18 @@
 #include <Arduino.h>
 
 #include "Zone/ZoneManager.hpp"
+#include "scheduler/Scheduler.hpp"
 
 namespace Zone {
 
-ZoneManager::ZoneManager() {
+ZoneManager::ZoneManager(Scheduler::Scheduler& scheduler) : m_scheduler(scheduler) {
     for (uint8_t i = 0; i < MAX_NUM_ZONES; ++i) {
         m_availableOutputPins[i] = AVAILABLE_OUTPUT_PINS[i];
         m_currentActiveZones[i] = 0;
         pinMode(AVAILABLE_OUTPUT_PINS[i], OUTPUT);
+
+        // Start each zone handler
+        m_zones[i].begin(AVAILABLE_OUTPUT_PINS[i], &m_scheduler);
     }
 }
 
@@ -43,6 +47,12 @@ void ZoneManager::setZoneStateApiCb(const JsonDocument &request) {
     } else {
         LOG_ERROR(zoneManagerLogger, "Invalid request for activating zone %d", targetZone);
     }
+}
+
+
+void ZoneManager::test() {
+    LOG_INFO_PGM(zoneManagerLogger, F("Starting ZoneManager test..."));
+    m_zones[0].setRunning(true);
 }
 
 } // namespace Zone

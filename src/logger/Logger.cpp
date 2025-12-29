@@ -19,4 +19,16 @@ void printPGM(const char* str) {
 #endif
 };
 
+void printCurrentTime() {
+#if LOG_LEVEL > 0
+    unsigned long ms = millis();
+    unsigned long seconds = ms / 1000;
+    unsigned long minutes = seconds / 60;
+    unsigned long hours = minutes / 60;
+    seconds = seconds % 60;
+    minutes = minutes % 60;
+    Serial.printf("[%02lu:%02lu:%02lu]", hours, minutes, seconds);
+#endif
+};
+
 }; // namespace Log

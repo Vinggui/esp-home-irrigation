@@ -11,12 +11,14 @@
 #define LED 2
 #define MAX_ZONES 4
 
-// Replace with your network credentials (or load from .env)
-const char* ssid = "";
-const char* password = "";
+// Replace with your network credentials (or use src/secrets.h)
+#include "secrets.hpp"
+const char* ssid = SECRET_SSID;
+const char* password = SECRET_PASSWORD;
 
+Scheduler::Scheduler scheduler{};
 Web::WebServer webServer(80);
-Zone::ZoneManager zoneManager;
+Zone::ZoneManager zoneManager(scheduler);
 
 LOG_NAME(mainLogger, "main");
 
@@ -25,7 +27,7 @@ void setup() {
 
     // put your setup code here, to run once:
     pinMode(LED, OUTPUT);
-
+   
     // Connect to Wi-Fi
     WiFi.begin(ssid, password);
     int counter = 0;
@@ -47,15 +49,21 @@ void setup() {
     webServer.begin();
     webServer.registerCallback(Web::RequestType::SET_ZONE_STATE, 
                               std::bind(&Zone::ZoneManager::setZoneStateApiCb, &zoneManager, std::placeholders::_1));
-    
+
+    // Retrieve and set the current local time via NTP
+    WiFiClient wifiClient;
+    scheduler.begin(wifiClient);
+
 
     // TEMPORARY: Registering Zone
     JsonDocument request;
     zoneManager.registerZoneApiCb(request);
-
     digitalWrite(LED, LOW);
+    delay(5000);
+    zoneManager.test();
 }
 
 void loop() {
   webServer.update();
+  scheduler.update();
 }
