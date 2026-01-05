@@ -18,7 +18,7 @@ import { useAppSettings } from "../settings/AppSettingsProvider";
 export default function ManualActivation() {
   const { zones, setZoneState, updateZone } = useZones();
   const [tick, setTick] = useState(0);
-  const activationRenderRef = useRef<Map<number, number>>(new Map());
+  const activationRenderRef = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map());
   const { waterCostPerLiter } = useAppSettings();
   
 

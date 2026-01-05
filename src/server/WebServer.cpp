@@ -1,5 +1,6 @@
 // WebSocket server handling
 #include "server/WebServer.hpp"
+#include <LittleFS.h>
 
 namespace Web {
 
@@ -8,7 +9,15 @@ WebServer::WebServer(int port) : m_server(AsyncWebServer(port)), m_ws(AsyncWebSo
 void WebServer::begin() {
     // Create AsyncWebServer object on port 80
     initWebSocket();
-
+    
+    if (!LittleFS.begin()) {
+      LOG_WARNING_PGM(webServerLogger, F("LittleFS mount failed, formatting..."));
+      return;
+    }
+    
+    size_t total = LittleFS.totalBytes();
+    size_t used  = LittleFS.usedBytes();
+    LOG_INFO(webServerLogger, "LittleFS mounted: %u bytes total, %u bytes used", total, used);
     m_server.begin();
 }
 
@@ -18,7 +27,12 @@ void WebServer::initWebSocket() {
     this->onEvent(server, client, type, arg, data, len);
   };
   m_ws.onEvent(callback);
-  m_server.addHandler(&m_ws);
+  m_server.addHandler(&m_ws);// Serve the index.html file from the root
+  m_server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(LittleFS, "/index.html", "text/html");
+  });
+  // Serve other static files
+  m_server.serveStatic("/", LittleFS, "/");
 }
 
 void WebServer::notifyClients() {

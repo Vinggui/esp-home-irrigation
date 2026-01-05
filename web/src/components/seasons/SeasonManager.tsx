@@ -8,6 +8,7 @@ type SeasonContextType = {
     currentSeason: string;
     getAdjustedDuration: (baseDuration: number) => number;
     getSeasonIcon: (season: string) => string;
+    getSeasonName: (season: string) => string;
     getSeasonalMultiplier: () => number;
 }
 

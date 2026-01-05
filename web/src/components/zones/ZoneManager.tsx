@@ -4,6 +4,7 @@ import React, { useState, createContext, useContext, useEffect, useRef } from "r
 import { useWebSocket } from "../connection-manager/ConnectionManager";
 import { useSeasons } from "../seasons/SeasonManager";
 import type { DailySchedule } from "../../lib/types";
+import { useAppSettings } from "../settings/AppSettingsProvider";
 
 export interface Zone {
     id: number
@@ -23,7 +24,6 @@ export interface Zone {
 type ZoneContextType = {
   zones: Zone[];
   toggleDay: (zoneId: number, scheduleId: string, day: string) => void;
-  zoneActivationTimes: React.MutableRefObject<Map<number, number>>;
   setZoneState: (zoneId: number, state: boolean, duration: number) => void;
   addZone: () => void;
   removeZone: (zoneId: number) => void;
@@ -43,7 +43,8 @@ export const useZones = () => {
 };
 
 export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { seasonalSettings, getAdjustedDuration, currentSeason, geteL } = useSeasons();
+  const { getAdjustedDuration, currentSeason } = useSeasons();
+  const { seasonalSettings } = useAppSettings();
   const { subscribe, unsubscribe, connected, sendMessage } = useWebSocket();
   const [zones, setZones] = useState<Zone[]>([
     {
@@ -59,7 +60,8 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
           days: ["mon", "wed", "fri"],
         },
       ],
-      manualActive: false,
+      isActive: false,
+      activeUntil: 0,
       manualTimer: 10,
       stats: { totalVolume: 450, totalCost: 2.25, averageDaily: 15 },
     },
@@ -76,7 +78,8 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
           days: ["tue", "thu", "sat"],
         },
       ],
-      manualActive: false,
+      isActive: false,
+      activeUntil: 0,
       manualTimer: 10,
       stats: { totalVolume: 240, totalCost: 1.2, averageDaily: 8 },
     },
@@ -269,7 +272,7 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <ZoneContext.Provider value={{ 
       zones, 
-      toggleDay, 
+      toggleDay,
       setZoneState, 
       addZone, 
       removeZone, 

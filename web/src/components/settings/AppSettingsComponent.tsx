@@ -69,7 +69,7 @@ export default function AppSettingsComponent() {
                             </span>
                             <Switch
                             checked={seasonalSettings.enabled}
-                            onCheckedChange={(enabled: boolean) => setSeasonalSettings((prev: SeasonalSettings) => ({ ...prev, enabled }))}
+                            onCheckedChange={(enabled: boolean) => setSeasonalSettings({ ...seasonalSettings, enabled })}
                             className="data-[state=checked]:bg-blue-600"
                             />
                         </CardTitle>
@@ -118,10 +118,10 @@ export default function AppSettingsComponent() {
                                     max="3.0"
                                     value={seasonalSettings.spring.multiplier}
                                     onChange={(e) =>
-                                    setSeasonalSettings((prev: SeasonalSettings) => ({
-                                        ...prev,
-                                        spring: { ...prev.spring, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    }))
+                                    setSeasonalSettings({
+                                        ...seasonalSettings,
+                                        spring: { ...seasonalSettings.spring, multiplier: Number.parseFloat(e.target.value) || 1.0 },
+                                    })
                                     }
                                     className="w-20 border-green-200 focus:border-green-500"
                                 />
@@ -146,10 +146,10 @@ export default function AppSettingsComponent() {
                                     max="3.0"
                                     value={seasonalSettings.summer.multiplier}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    setSeasonalSettings((prev: SeasonalSettings) => ({
-                                        ...prev,
-                                        summer: { ...prev.summer, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    }))
+                                    setSeasonalSettings({
+                                        ...seasonalSettings,
+                                        summer: { ...seasonalSettings.summer, multiplier: Number.parseFloat(e.target.value) || 1.0 },
+                                    })
                                     }
                                     className="w-20 border-orange-200 focus:border-orange-500"
                                 />
@@ -174,10 +174,10 @@ export default function AppSettingsComponent() {
                                     max="3.0"
                                     value={seasonalSettings.fall.multiplier}
                                     onChange={(e) =>
-                                    setSeasonalSettings((prev) => ({
-                                        ...prev,
-                                        fall: { ...prev.fall, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    }))
+                                    setSeasonalSettings({
+                                        ...seasonalSettings,
+                                        fall: { ...seasonalSettings.fall, multiplier: Number.parseFloat(e.target.value) || 1.0 },
+                                    })
                                     }
                                     className="w-20 border-amber-200 focus:border-amber-500"
                                 />
@@ -202,10 +202,10 @@ export default function AppSettingsComponent() {
                                     max="3.0"
                                     value={seasonalSettings.winter.multiplier}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    setSeasonalSettings((prev: SeasonalSettings) => ({
-                                        ...prev,
-                                        winter: { ...prev.winter, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    }))
+                                    setSeasonalSettings({
+                                        ...seasonalSettings,
+                                        winter: { ...seasonalSettings.winter, multiplier: Number.parseFloat(e.target.value) || 1.0 },
+                                    })
                                     }
                                     className="w-20 border-slate-200 focus:border-slate-500"
                                 />
