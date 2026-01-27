@@ -38,8 +38,10 @@ export const ConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chi
   const connectWS = () => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) { return; }
 
-    console.log("Checking connection to ESP32...");
-    socket.current = new WebSocket("ws://192.168.86.245/ws");
+    // Use VITE_WS_URL if set, otherwise default to current host
+    const url = import.meta.env.VITE_WS_URL ?? window.location.hostname;
+    console.log("Checking connection to ESP32 at ", url);
+    socket.current = new WebSocket(`ws://${url}/ws`);
     if (!socket.current) {
       console.error("Failed to create WebSocket connection");
       setTimeout(connectWS, 2000);
@@ -58,6 +60,11 @@ export const ConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   };
 
+  const requestSystemData = () => {
+    sendMessage({ api_handler: "get_system_data" });
+    console.debug("Requesting system data...");
+  }
+
   // Handles received messages
   const handleWSMessages = async (event: MessageEvent) => {
     setLastSync(new Date());
@@ -65,13 +72,15 @@ export const ConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chi
     const type = data.type
 
     // Call registered callbacks for this type
+    console.debug("Received message of type:", type, data);
     callbacks.current.get(type)?.forEach((cb: MessageCallback) => cb(data));
   };
 
   // Connect on mount
   useEffect(() => {
     connectWS();
-
+    requestSystemData();
+    
     return () => {
       socket.current?.close();
     }

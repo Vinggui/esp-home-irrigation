@@ -4,6 +4,25 @@
 
 namespace Web {
 
+namespace {
+ uint8_t getRequestTypeByString(const char* str) {
+    static const struct {
+      const char* name;
+      RequestType type;
+    } api_handlers[] = {
+      { "get_all_configs", RequestType::GET_ALL_CONFIGS },
+      { "set_zone_state",  RequestType::SET_ZONE_STATE  }
+    };
+
+    for (auto &h : api_handlers) {
+      if (strcmp(str, h.name) == 0) {
+        return static_cast<uint8_t>(h.type);
+      }
+    }
+    return 255; // Invalid type
+}
+} // namespace
+
 WebServer::WebServer(int port) : m_server(AsyncWebServer(port)), m_ws(AsyncWebSocket("/ws")) {}
 
 void WebServer::begin() {
@@ -56,21 +75,21 @@ void WebServer::handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
 
     // Assert the resquest has a valid command type
-    if (!m_jsonDoc["command"].is<const char*>()) {
-      LOG_ERROR_PGM(webServerLogger, F("Invalid request: command is not a string"));
+    if (!m_jsonDoc["api_handler"].is<const char*>()) {
+      LOG_ERROR_PGM(webServerLogger, F("Invalid request: api_handler is not a string"));
       return;
     }
-    const char* command = m_jsonDoc["command"];
+    const char* command = m_jsonDoc["api_handler"];
     uint8_t requestType = getRequestTypeByString(command);
     if (requestType == 255) {
-      LOG_ERROR_PGM(webServerLogger, F("Invalid request: unknown command"));
+      LOG_ERROR_PGM(webServerLogger, F("Invalid request: unknown api handler"));
       return;
     }
 
     for (int i = 0; i < m_callbackCount; ++i) {
       if (requestType == m_expectedRegistredCallbacks[i].type) {
-        LOG_INFO(webServerLogger, "Found Callback for command: %s", command);
-        m_expectedRegistredCallbacks[i].cb(m_jsonDoc);
+        LOG_DEBUG(webServerLogger, "Found Callback for api handler: %s", command);
+        m_expectedRegistredCallbacks[i].cb(m_jsonDoc, m_expectedRegistredCallbacks[i].ctx);
         return;
       }
     }
@@ -97,8 +116,19 @@ void WebServer::onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, Aw
   }
 }
 
-void WebServer::registerCallback(RequestType type, ApiHandlerFunction cb) {
-  m_expectedRegistredCallbacks[m_callbackCount++] = {static_cast<uint8_t>(type), cb};
+void WebServer::registerCallback(RequestType type, ApiHandlerFunction cb, void* ctx) {
+  m_expectedRegistredCallbacks[m_callbackCount++] = {
+    static_cast<uint8_t>(type),
+    cb,
+    ctx
+  };
+}
+
+void WebServer::broadcastMessage(const JsonDocument &message) {
+  // Serialize the JSON document to a string
+  String jsonBuffer;
+  serializeJson(message, jsonBuffer);
+  m_ws.textAll(jsonBuffer);
 }
 
 void WebServer::update() {

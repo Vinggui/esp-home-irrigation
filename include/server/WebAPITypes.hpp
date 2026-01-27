@@ -9,17 +9,10 @@
 namespace Web {
 
 enum class RequestType {
-    SET_ZONE_CONFIG,
-    SET_ZONE_STATE,
+    GET_ALL_CONFIGS,
+    SET_ZONE_STATE
 };
 
-uint8_t getRequestTypeByString(const char* str);
-
-typedef std::function<void(const JsonDocument &request)> ApiHandlerFunction;
-
-struct ApiCallbackEntry {
-    uint8_t type;
-    ApiHandlerFunction cb;
-};
+using ApiHandlerFunction = void (*)(const JsonDocument &request, void* ctx);
 
 }; // namespace Web

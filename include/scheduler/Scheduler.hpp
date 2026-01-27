@@ -19,7 +19,7 @@ public:
     void update();
 
     void setCurrentLocalTimeByIP(WiFiClient& wifiClient);
-    int setTimer(int seconds, TimerCallback callback, void* callerCtx = nullptr);
+    int setTimer(int seconds, TimerCallback callback, void* callerCtx);
     bool cancelTimer(int timerId);
 
 private:

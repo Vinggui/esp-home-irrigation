@@ -22,6 +22,27 @@ void ZoneHandler::begin(int outputPin, Scheduler::Scheduler* scheduler) {
     m_scheduler = scheduler;
 }
 
+void ZoneHandler::cleanData() {
+    m_zoneName = "New Zone";
+    m_isActive = false;
+    m_wateringDuration = 10;
+
+    // Check if there is an active timer and cancel it
+    if (m_timerHandler != 0 && m_scheduler) {
+        m_scheduler->cancelTimer(m_timerHandler);
+    }
+}
+
+JsonDocument ZoneHandler::toJson() const {
+    JsonDocument doc;
+    doc["api_handler"] = "single_zone_update";
+    doc["zone_name"] = m_zoneName;
+    doc["pin_number"] = m_pinNumber;
+    doc["is_active"] = m_isActive;
+    doc["watering_duration"] = m_wateringDuration;
+    return doc;
+}
+
 void ZoneHandler::activationTimerCallback(int timerId) {
     if (timerId != m_timerHandler) {
         LOG_ERROR_PGM(zoneHandlerLogger, F("Mismatched timer ID in callback"));

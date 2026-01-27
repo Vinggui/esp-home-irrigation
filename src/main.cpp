@@ -18,7 +18,7 @@ const char* password = SECRET_PASSWORD;
 
 Scheduler::Scheduler scheduler{};
 Web::WebServer webServer(80);
-Zone::ZoneManager zoneManager(scheduler);
+Zone::ZoneManager zoneManager(webServer, scheduler);
 
 LOG_NAME(mainLogger, "main");
 
@@ -47,23 +47,15 @@ void setup() {
 
     // Start the web server
     webServer.begin();
-    webServer.registerCallback(Web::RequestType::SET_ZONE_STATE, 
-                              std::bind(&Zone::ZoneManager::setZoneStateApiCb, &zoneManager, std::placeholders::_1));
 
     // Retrieve and set the current local time via NTP
     WiFiClient wifiClient;
     scheduler.begin(wifiClient);
-
-
-    // TEMPORARY: Registering Zone
-    JsonDocument request;
-    zoneManager.registerZoneApiCb(request);
     digitalWrite(LED, LOW);
-    delay(5000);
-    zoneManager.test();
 }
 
 void loop() {
   webServer.update();
   scheduler.update();
+  zoneManager.update();
 }

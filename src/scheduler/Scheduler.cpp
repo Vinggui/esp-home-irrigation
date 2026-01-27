@@ -85,6 +85,11 @@ void Scheduler::setCurrentLocalTimeByIP(WiFiClient& wifiClient) {
 
 
 int Scheduler::setTimer(int seconds, TimerCallback callback, void* callerCtx) {
+    if (seconds <= 0 || callback == nullptr) {
+        LOG_ERROR_PGM(schedulerLogger, F("Invalid timer parameters"));
+        return -1;
+    }
+    
     // Set a timer for the specified duration
     for (int i = 0; i < MAX_TIMERS; ++i) {
         if (!m_timers[i].active) {

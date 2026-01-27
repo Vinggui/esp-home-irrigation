@@ -47,59 +47,64 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
   const { seasonalSettings } = useAppSettings();
   const { subscribe, unsubscribe, connected, sendMessage } = useWebSocket();
   const [zones, setZones] = useState<Zone[]>([
-    {
-      id: 1,
-      name: "Front Lawn",
-      flowRate: 15,
-      schedules: [
-        {
-          id: "1-default",
-          enabled: false,
-          startTime: "06:00",
-          duration: 30,
-          days: ["mon", "wed", "fri"],
-        },
-      ],
-      isActive: false,
-      activeUntil: 0,
-      manualTimer: 10,
-      stats: { totalVolume: 450, totalCost: 2.25, averageDaily: 15 },
-    },
-    {
-      id: 2,
-      name: "Back Yard",
-      flowRate: 12,
-      schedules: [
-        {
-          id: "2-default",
-          enabled: false,
-          startTime: "06:30",
-          duration: 20,
-          days: ["tue", "thu", "sat"],
-        },
-      ],
-      isActive: false,
-      activeUntil: 0,
-      manualTimer: 10,
-      stats: { totalVolume: 240, totalCost: 1.2, averageDaily: 8 },
-    },
+    // {
+    //   id: 1,
+    //   name: "Front Lawn",
+    //   flowRate: 15,
+    //   schedules: [
+    //     {
+    //       id: "1-default",
+    //       enabled: false,
+    //       startTime: "06:00",
+    //       duration: 30,
+    //       days: ["mon", "wed", "fri"],
+    //     },
+    //   ],
+    //   isActive: false,
+    //   activeUntil: 0,
+    //   manualTimer: 10,
+    //   stats: { totalVolume: 450, totalCost: 2.25, averageDaily: 15 },
+    // },
+    // {
+    //   id: 2,
+    //   name: "Back Yard",
+    //   flowRate: 12,
+    //   schedules: [
+    //     {
+    //       id: "2-default",
+    //       enabled: false,
+    //       startTime: "06:30",
+    //       duration: 20,
+    //       days: ["tue", "thu", "sat"],
+    //     },
+    //   ],
+    //   isActive: false,
+    //   activeUntil: 0,
+    //   manualTimer: 10,
+    //   stats: { totalVolume: 240, totalCost: 1.2, averageDaily: 8 },
+    // },
   ]);
   const [conflicts, setConflicts] = useState<string[]>([]);
 
   // Zone management functions
   const addZone = () => {
-    const newId = Math.max(...zones.map((z: Zone) => z.id), 0) + 1
-    const newZone: Zone = {
-      id: newId,
-      name: `Zone ${newId}`,
-      flowRate: 10,
-      schedules: [],
-      isActive: false,
-      activeUntil: 0,
-      manualTimer: 10,
-      stats: { totalVolume: 0, totalCost: 0, averageDaily: 0 },
-    }
-    setZones((prev: Zone[]) => [...prev, newZone])
+    // const newId = Math.max(...zones.map((z: Zone) => z.id), 0) + 1
+    // const newZone: Zone = {
+    //   id: newId,
+    //   name: `Zone ${newId}`,
+    //   flowRate: 10,
+    //   schedules: [],
+    //   isActive: false,
+    //   activeUntil: 0,
+    //   manualTimer: 10,
+    //   stats: { totalVolume: 0, totalCost: 0, averageDaily: 0 },
+    // }
+    // setZones((prev: Zone[]) => [...prev, newZone])
+    console.debug("Adding new zone...");
+    sendMessage({
+      api_handler: "set_zone_state",
+      command: "create_new_zone",
+    });
   }
 
   const removeZone = (zoneId: number) => {
@@ -194,6 +199,13 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     checkConflicts()
   }, [zones, seasonalSettings])
+
+  
+  useEffect(() => {
+    subscribe("all_zones_update", (data: any) => {
+      console.debug("Received zones update:", data);
+    });
+  }, [])
 
   const saveSchedules = async () => {
     if (conflicts.length > 0) return
