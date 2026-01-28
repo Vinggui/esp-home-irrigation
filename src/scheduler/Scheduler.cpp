@@ -106,6 +106,16 @@ int Scheduler::setTimer(int seconds, TimerCallback callback, void* callerCtx) {
     return -1; // No available timer slots
 }
 
+int Scheduler::getRemainingTime(int timerId) const {
+    if (timerId < 0 || timerId >= MAX_TIMERS) return -1;
+    if (!m_timers[timerId].active) return 0;
+    unsigned long currentTime = millis();
+    if (currentTime >= m_timers[timerId].endTime) {
+        return 0;
+    }
+    return (m_timers[timerId].endTime - currentTime) / 1000; // Return in seconds
+}
+
 bool Scheduler::cancelTimer(int timerId) {
     if (timerId < 0 || timerId >= MAX_TIMERS) return false;
     if (!m_timers[timerId].active) return false;

@@ -3,7 +3,7 @@
 #include <ArduinoJson.h>
 
 #include "logger/Logger.hpp"
-#include "server/WebAPITypes.hpp"
+#include "api/WebAPITypes.hpp"
 #include "ZoneHandler.hpp"
 #include "contants/globals.hpp"
 #include "server/WebServer.hpp"

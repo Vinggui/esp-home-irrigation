@@ -202,9 +202,15 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
 
   
   useEffect(() => {
-    subscribe("all_zones_update", (data: any) => {
+    const handler = subscribe("all_zones_update", (data: any) => {
+      console.assert(Array.isArray(data.zones), "zones update data should be an array");
+      // setZones(data.zones);
       console.debug("Received zones update:", data);
     });
+    return () => {
+      // Clean up subscription on unmount - Herlpful during development with hot reloads
+      unsubscribe(handler);
+    };
   }, [])
 
   const saveSchedules = async () => {

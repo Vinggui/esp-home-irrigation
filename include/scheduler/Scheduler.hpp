@@ -20,6 +20,7 @@ public:
 
     void setCurrentLocalTimeByIP(WiFiClient& wifiClient);
     int setTimer(int seconds, TimerCallback callback, void* callerCtx);
+    int getRemainingTime(int timerId) const;
     bool cancelTimer(int timerId);
 
 private:

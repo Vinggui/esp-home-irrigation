@@ -8,10 +8,10 @@ namespace {
  uint8_t getRequestTypeByString(const char* str) {
     static const struct {
       const char* name;
-      RequestType type;
+      Api::RequestType type;
     } api_handlers[] = {
-      { "get_all_configs", RequestType::GET_ALL_CONFIGS },
-      { "set_zone_state",  RequestType::SET_ZONE_STATE  }
+      { "get_all_configs", Api::RequestType::GET_ALL_CONFIGS },
+      { "set_zone_state",  Api::RequestType::SET_ZONE_STATE  }
     };
 
     for (auto &h : api_handlers) {
@@ -116,7 +116,7 @@ void WebServer::onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, Aw
   }
 }
 
-void WebServer::registerCallback(RequestType type, ApiHandlerFunction cb, void* ctx) {
+void WebServer::registerCallback(Api::RequestType type, Api::ApiHandlerFunction cb, void* ctx) {
   m_expectedRegistredCallbacks[m_callbackCount++] = {
     static_cast<uint8_t>(type),
     cb,

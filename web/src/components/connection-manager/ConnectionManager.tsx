@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 type MessageCallback = (message: JSON) => void;
+type ApiSubscriptHandler = {type: string, cb: MessageCallback};
 
 type WebSocketContextType = {
   sendMessage: (msg: object) => void;
@@ -27,11 +28,21 @@ export const ConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chi
   const subscribe = useCallback((type: string, cb: MessageCallback) => {
     if (!callbacks.current.has(type)) callbacks.current.set(type, new Set())
     callbacks.current.get(type)!.add(cb);
+    return {type, cb};
   }, []);
 
   // Unsubscribe from a message type
-  const unsubscribe = useCallback((type: string, cb: MessageCallback) => {
+  const unsubscribe = useCallback((handler: ApiSubscriptHandler) => {
+    // Just process the unsubscribe
+    removeApiSubscription(handler.type, handler.cb);
+  }, []);
+
+  const removeApiSubscription = useCallback((type: string, cb: MessageCallback) => {
     callbacks.current.get(type)?.delete(cb);
+    if (callbacks.current.get(type)?.size === 0) {
+      callbacks.current.delete(type);
+    }
+    console.debug(`Unsubscribed from ${type}`);
   }, []);
 
   // Try to reconnect if the connection is lost
@@ -69,11 +80,17 @@ export const ConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chi
   const handleWSMessages = async (event: MessageEvent) => {
     setLastSync(new Date());
     const data = JSON.parse(event.data);
-    const type = data.type
 
+    const apiResponse = data.api_response;
+    if (apiResponse) {
+      console.debug("Received API response:", data);
+      return;
+    }
+
+    const apiData = data.api_data;
     // Call registered callbacks for this type
-    console.debug("Received message of type:", type, data);
-    callbacks.current.get(type)?.forEach((cb: MessageCallback) => cb(data));
+    console.debug(`Received message of type: ${apiData},`, data);
+    callbacks.current.get(apiData)?.forEach((cb: MessageCallback) => cb(data));
   };
 
   // Connect on mount

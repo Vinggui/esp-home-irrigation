@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-#include "Zone/ZoneManager.hpp"
+#include "zone/ZoneManager.hpp"
 #include "scheduler/Scheduler.hpp"
 
 namespace Zone {
@@ -23,11 +23,11 @@ ZoneManager::ZoneManager(Web::WebServer& webServer, Scheduler::Scheduler& schedu
         pinMode(AVAILABLE_OUTPUT_PINS[i], OUTPUT);
 
         // Start each zone handler
-        m_zones[i].begin(AVAILABLE_OUTPUT_PINS[i], &m_scheduler);
+        m_zones[i].begin(i, AVAILABLE_OUTPUT_PINS[i], &m_scheduler);
     }
 
     // Register the API callback for zone state changes
-    m_webServer.registerCallback(Web::RequestType::SET_ZONE_STATE, &zoneApiReceiverCB, this);
+    m_webServer.registerCallback(Api::RequestType::SET_ZONE_STATE, &zoneApiReceiverCB, this);
 }
 
 bool ZoneManager::registerZone(const JsonDocument &request) {
@@ -105,13 +105,13 @@ void ZoneManager::zoneStateApiHandler(const JsonDocument &request) {
     JsonDocument responseDoc;
     responseDoc["api_response"] = request["command"];
     responseDoc["status"] = response;
-    // m_webServer.broadcastMessage(responseDoc);
+    m_webServer.broadcastMessage(responseDoc);
 }
 
 void ZoneManager::SendBroadcastUpdate() {
     LOG_INFO_PGM(zoneManagerLogger, F("Broadcasting zones update..."));
     JsonDocument broadcastDoc;
-    broadcastDoc["api_type"] = "all_zones_update";
+    broadcastDoc["api_data"] = "all_zones_update";
     JsonArray zonesArray = broadcastDoc["zones"].to<JsonArray>();
     
     for (uint8_t i = 0; i < MAX_NUM_ZONES; ++i) {

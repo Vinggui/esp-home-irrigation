@@ -6,5 +6,6 @@
 #define LOG_LEVEL 4
 
 constexpr uint8_t MAX_NUM_ZONES = 4;
+constexpr uint8_t MAX_NUM_SCHEDULES_PER_ZONE = 5;
 constexpr uint8_t AVAILABLE_OUTPUT_PINS[MAX_NUM_ZONES] = {2, 17, 18, 19};
 

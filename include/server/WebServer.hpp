@@ -6,7 +6,7 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-#include "WebAPITypes.hpp"
+#include "api/WebAPITypes.hpp"
 #include "logger/Logger.hpp"
 
 namespace Web {
@@ -19,7 +19,7 @@ public:
     WebServer(int port = 80);
     void begin();
     void handleClient();
-    void registerCallback(RequestType type, ApiHandlerFunction cb, void* callerCtx);
+    void registerCallback(Api::RequestType type, Api::ApiHandlerFunction cb, void* callerCtx);
     void broadcastMessage(const JsonDocument &message);
     void update();
 
@@ -40,7 +40,7 @@ private:
     // For simplicity, we use a simple array with a fixed size for all expected callbacks.
     struct ApiCallbackEntry {
         uint8_t type;
-        ApiHandlerFunction cb;
+        Api::ApiHandlerFunction cb;
         void* ctx{nullptr};
     };
     int m_callbackCount{0};
