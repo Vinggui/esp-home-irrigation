@@ -21,19 +21,25 @@ import { useZones } from "../zones/ZoneManager";
 import { useSeasons } from "../seasons/SeasonManager";
 import type { DailySchedule } from "../../lib/types";
 import { useAppSettings } from "../settings/AppSettingsProvider";
+import { useScheduleDirty } from "../../App";
 
 export default function Schedule() {
   const [conflicts, setConflicts] = useState<string[]>([])
+  const [nameDrafts, setNameDrafts] = useState<Record<number, string>>({})
   const { zones,
           addZone,
           removeZone,
           updateZone, 
           updateZoneName,
+          updateZonePin,
           addScheduleToZone,
           updateZoneSchedule,
           removeScheduleFromZone,
-          toggleDay
+          toggleDay,
+          saveSchedules: saveSchedulesToServer,
+          savedZones,
   } = useZones();
+  const { setDirty, isDirty } = useScheduleDirty();
 
   const { currentSeason,
           getSeasonIcon,
@@ -43,8 +49,29 @@ export default function Schedule() {
   } = useSeasons();
 
   const { seasonalSettings } = useAppSettings();
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string>("");
 
-  const saveSchedules = async () => {
+  const buildCurrentSnapshot = (sourceZones: Zone[] = zones) =>
+    JSON.stringify({
+      zones: sourceZones.map((zone: Zone) => ({
+        id: zone.id,
+        name: zone.name,
+        pinNumber: zone.pinNumber,
+        flowRate: zone.flowRate,
+        schedules: zone.schedules.map((schedule: DailySchedule) => ({
+          id: schedule.id,
+          enabled: schedule.enabled,
+          startTime: schedule.startTime,
+          duration: schedule.duration,
+          days: schedule.days,
+        })),
+      })),
+      seasonalSettings,
+      currentSeason,
+    });
+
+  const handleSaveSchedules = () => {
     if (conflicts.length > 0) return
 
     const scheduleData = {
@@ -62,15 +89,15 @@ export default function Schedule() {
       timestamp: new Date().toISOString(),
     }
 
-    // try {
-    //   await fetch("/api/schedule", {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json" },
-    //     body: JSON.stringify(scheduleData),
-    //   })
-    // } catch (error) {
-    //   console.error("Failed to save schedules:", error)
-    // }
+    try {
+      saveSchedulesToServer();
+      const snapshot = buildCurrentSnapshot();
+      setLastSavedSnapshot(snapshot);
+      setHasLocalChanges(false);
+      setDirty(false);
+    } catch (error) {
+      console.error("Failed to save schedules:", error)
+    }
   };
 
   // Conflict detection
@@ -120,6 +147,64 @@ export default function Schedule() {
     console.log("Zones or seasonal settings changed");
     checkConflicts();
   }, [zones, seasonalSettings]);
+
+  useEffect(() => {
+    const handleSaveRequest = () => {
+      const snapshot = buildCurrentSnapshot();
+      setLastSavedSnapshot(snapshot);
+      setHasLocalChanges(false);
+      setDirty(false);
+    };
+
+    const handleDiscardRequest = () => {
+      setLastSavedSnapshot(buildCurrentSnapshot(savedZones));
+      setHasLocalChanges(false);
+      setDirty(false);
+    };
+
+    window.addEventListener("schedule:save-request", handleSaveRequest);
+    window.addEventListener("schedule:discard-request", handleDiscardRequest);
+
+    return () => {
+      window.removeEventListener("schedule:save-request", handleSaveRequest);
+      window.removeEventListener("schedule:discard-request", handleDiscardRequest);
+    };
+  }, [savedZones, setDirty]);
+
+  useEffect(() => {
+    if (savedZones.length > 0) {
+      const savedSnapshot = buildCurrentSnapshot(savedZones);
+      setLastSavedSnapshot(savedSnapshot);
+    }
+  }, [savedZones]);
+
+  useEffect(() => {
+    const snapshot = buildCurrentSnapshot();
+
+    if (lastSavedSnapshot === "") {
+      const hasExistingState =
+        zones.length > 0 ||
+        currentSeason !== undefined ||
+        Object.keys(seasonalSettings || {}).length > 0;
+
+      if (hasExistingState) {
+        setLastSavedSnapshot(snapshot);
+        setHasLocalChanges(false);
+        setDirty(false);
+      } else {
+        setHasLocalChanges(false);
+        setDirty(false);
+      }
+
+      return;
+    }
+
+    const isModified = snapshot !== lastSavedSnapshot;
+    setHasLocalChanges(isModified);
+    setDirty(isModified);
+  }, [zones, seasonalSettings, currentSeason, lastSavedSnapshot, setDirty]);
+
+  const availablePins = [2, 17, 18, 19];
 
   const dayOptions = [
     { value: "mon", label: "Mon", Name: "Monday" },
@@ -211,8 +296,26 @@ export default function Schedule() {
             <div className="flex items-center gap-3 flex-1">
               <Droplets className="h-5 w-5 text-blue-600" />
               <Input
-                value={zone.name}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateZoneName(zone.id, e.target.value)}
+                value={nameDrafts[zone.id] ?? zone.name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setNameDrafts((prev) => ({ ...prev, [zone.id]: e.target.value }))
+                }}
+                onBlur={() => {
+                  const draft = nameDrafts[zone.id] ?? zone.name
+                  if (draft !== zone.name) {
+                    updateZoneName(zone.id, draft)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    const draft = nameDrafts[zone.id] ?? zone.name
+                    if (draft !== zone.name) {
+                      updateZoneName(zone.id, draft)
+                    }
+                    e.currentTarget.blur()
+                  }
+                }}
                 className="font-semibold text-blue-900 border-none p-0 h-auto bg-transparent focus:bg-white focus:border-blue-500"
                 placeholder="Zone name"
               />
@@ -235,18 +338,36 @@ export default function Schedule() {
           </div>
 
           {/* Flow Rate Setting */}
-          <div className="flex items-center gap-4 mt-3">
-            <Label className="text-blue-800">Flow Rate:</Label>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min="1"
-                max="50"
-                value={zone.flowRate}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateZone(zone.id, { flowRate: Number.parseInt(e.target.value) || 1 })}
-                className="w-20 border-blue-200 focus:border-blue-500"
-              />
-              <span className="text-sm text-blue-600">L/min</span>
+              <Label className="text-blue-800">Output Pin:</Label>
+              <select
+                value={zone.pinNumber}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateZonePin(zone.id, Number(e.target.value))}
+                className="rounded border border-blue-200 bg-white px-2 py-1 text-sm text-blue-900"
+              >
+                {availablePins
+                  .filter((pin) => pin === zone.pinNumber || !zones.some((other: Zone) => other.id !== zone.id && other.pinNumber === pin))
+                  .map((pin) => (
+                    <option key={pin} value={pin}>
+                      GPIO {pin}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-blue-800">Flow Rate:</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={zone.flowRate}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateZone(zone.id, { flowRate: Number.parseInt(e.target.value) || 1 })}
+                  className="w-20 border-blue-200 focus:border-blue-500"
+                />
+                <span className="text-sm text-blue-600">L/min</span>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -361,11 +482,11 @@ export default function Schedule() {
     ))}
 
     <Button
-      onClick={saveSchedules}
-      disabled={conflicts.length > 0}
-      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-red-400"
+      onClick={handleSaveSchedules}
+      disabled={conflicts.length > 0 || !isDirty}
+      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-green-400"
     >
-      {conflicts.length > 0 ? "Resolve Conflicts First" : "Save All Schedules"}
+      {conflicts.length > 0 ? "Resolve Conflicts First" : isDirty ? "Save All Schedules" : "No Changes to Save"}
     </Button>
     </>
   );

@@ -148,8 +148,6 @@ void Scheduler::update() {
         m_lastUpdate = millis();
         m_timeClient.update();
         
-        // print formatted time
-        LOG_INFO(schedulerLogger, "Current time: %s", m_timeClient.getFormattedTime().c_str());
         // Check timers
         checkTimers();
     }

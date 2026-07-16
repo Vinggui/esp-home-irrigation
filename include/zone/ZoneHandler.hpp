@@ -16,6 +16,16 @@ public:
     void begin(int id, int outputPin, Scheduler::Scheduler* scheduler);
     void cleanData();
     bool setRunning(bool activate);
+    void setManualWateringDuration(uint8_t minutes);
+    void setName(const char* name);
+    void setFlowRate(double flowRate);
+    void setOutputPin(int pinNumber);
+    void setSchedules(const JsonArrayConst &schedules);
+    void updateUsage(unsigned long nowMs, double waterCostPerLiter);
+    void resetUsage();
+    uint8_t getManualWateringDuration() const;
+    bool isActive() const;
+    void setStateChangedCallback(void (*callback)(void* ctx), void* ctx);
     void activationTimerCallback(int timerId);
     JsonDocument toJson() const;
 
@@ -34,9 +44,15 @@ private:
     int m_zoneId{-1};
     int m_pinNumber{-1};
     bool m_isActive{false};
-    uint8_t m_manualWateringDuration{10}; // in seconds
+    uint8_t m_manualWateringDuration{10}; // in minutes
+    double m_totalVolumeLiters{0.0};
+    double m_totalCost{0.0};
+    double m_averageDaily{0.0};
+    unsigned long m_lastUsageSampleMs{0};
     Scheduler::Scheduler* m_scheduler{nullptr};
-    int m_timerHandler{0};
+    int m_timerHandler{-1};
+    void (*m_stateChangedCallback)(void* ctx){nullptr};
+    void* m_stateChangedCallbackCtx{nullptr};
     ScheduleEntry m_schedules[MAX_NUM_SCHEDULES_PER_ZONE]; // Support up to 5 schedules per zone
 };
 

@@ -16,15 +16,19 @@ LOG_NAME(webServerLogger, "WebServer");
 
 class WebServer {
 public:
+    using StateSnapshotCallback = void (*)(void* ctx, JsonDocument &message);
+
     WebServer(int port = 80);
     void begin();
     void handleClient();
     void registerCallback(Api::RequestType type, Api::ApiHandlerFunction cb, void* callerCtx);
+    void registerStateSnapshotCallback(StateSnapshotCallback cb, void* ctx);
     void broadcastMessage(const JsonDocument &message);
     void update();
 
 private:
     void handleWebSocketMessage(void *arg, uint8_t *data, size_t len);
+    void sendStateSnapshot(AsyncWebSocketClient* client);
 
     void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
                  void *arg, uint8_t *data, size_t len);
@@ -45,6 +49,8 @@ private:
     };
     int m_callbackCount{0};
     ApiCallbackEntry m_expectedRegistredCallbacks[MAX_NUM_CALLBACKS];
+    StateSnapshotCallback m_stateSnapshotCallback{nullptr};
+    void* m_stateSnapshotCtx{nullptr};
 };
 
 }; // namespace Web

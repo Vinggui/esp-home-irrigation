@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
@@ -17,6 +17,69 @@ import {
 export default function AppSettingsComponent() {
     const { currentSeason, getSeasonName, getSeasonalMultiplier, getSeasonIcon } = useSeasons();
     const { seasonalSettings, waterCostPerLiter, setWaterCostPerLiter, setSeasonalSettings, showSidebarSettings, setShowSidebarSettings } = useAppSettings();
+    const { sendMessage } = useWebSocket();
+    const [waterCostDraft, setWaterCostDraft] = useState(String(waterCostPerLiter));
+    const [seasonDrafts, setSeasonDrafts] = useState({
+        spring: String(seasonalSettings.spring.multiplier),
+        summer: String(seasonalSettings.summer.multiplier),
+        fall: String(seasonalSettings.fall.multiplier),
+        winter: String(seasonalSettings.winter.multiplier),
+    });
+
+    useEffect(() => {
+        setWaterCostDraft(String(waterCostPerLiter));
+    }, [waterCostPerLiter]);
+
+    useEffect(() => {
+        setSeasonDrafts({
+            spring: String(seasonalSettings.spring.multiplier),
+            summer: String(seasonalSettings.summer.multiplier),
+            fall: String(seasonalSettings.fall.multiplier),
+            winter: String(seasonalSettings.winter.multiplier),
+        });
+    }, [seasonalSettings]);
+
+    const commitWaterCost = () => {
+        const nextValue = Number.parseFloat(waterCostDraft) || 0;
+        if (nextValue !== waterCostPerLiter) {
+            setWaterCostPerLiter(nextValue);
+            sendMessage({
+                api_handler: "set_zone_state",
+                command: "set_water_cost",
+                cost: nextValue,
+            });
+        }
+    };
+
+    const commitSeasonalSettings = (updates: Partial<SeasonalSettings>) => {
+        const nextSettings = { ...seasonalSettings, ...updates };
+        setSeasonalSettings(nextSettings);
+        sendMessage({
+            api_handler: "set_zone_state",
+            command: "set_seasonal_settings",
+            settings: nextSettings,
+        });
+    };
+
+    const commitSeasonMultiplier = (season: keyof Pick<SeasonalSettings, "spring" | "summer" | "fall" | "winter">) => {
+        const nextValue = Number.parseFloat(seasonDrafts[season]) || 1.0;
+        const nextSettings = {
+            ...seasonalSettings,
+            [season]: {
+                ...seasonalSettings[season],
+                multiplier: nextValue,
+            },
+        };
+
+        if (nextSettings[season].multiplier !== seasonalSettings[season].multiplier) {
+            setSeasonalSettings(nextSettings);
+            sendMessage({
+                api_handler: "set_zone_state",
+                command: "set_seasonal_settings",
+                settings: nextSettings,
+            });
+        }
+    };
 
     return (
         <>
@@ -49,8 +112,16 @@ export default function AppSettingsComponent() {
                                 type="number"
                                 step="0.001"
                                 min="0"
-                                value={waterCostPerLiter}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWaterCostPerLiter(Number.parseFloat(e.target.value) || 0)}
+                                value={waterCostDraft}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWaterCostDraft(e.target.value)}
+                                onBlur={commitWaterCost}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        commitWaterCost();
+                                        e.currentTarget.blur();
+                                    }
+                                }}
                                 className="w-24 border-blue-200 focus:border-blue-500"
                                 />
                                 per liter
@@ -69,7 +140,7 @@ export default function AppSettingsComponent() {
                             </span>
                             <Switch
                             checked={seasonalSettings.enabled}
-                            onCheckedChange={(enabled: boolean) => setSeasonalSettings({ ...seasonalSettings, enabled })}
+                            onCheckedChange={(enabled: boolean) => commitSeasonalSettings({ enabled })}
                             className="data-[state=checked]:bg-blue-600"
                             />
                         </CardTitle>
@@ -116,13 +187,16 @@ export default function AppSettingsComponent() {
                                     step="0.1"
                                     min="0.1"
                                     max="3.0"
-                                    value={seasonalSettings.spring.multiplier}
-                                    onChange={(e) =>
-                                    setSeasonalSettings({
-                                        ...seasonalSettings,
-                                        spring: { ...seasonalSettings.spring, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    })
-                                    }
+                                    value={seasonDrafts.spring}
+                                    onChange={(e) => setSeasonDrafts((prev) => ({ ...prev, spring: e.target.value }))}
+                                    onBlur={() => commitSeasonMultiplier("spring")}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            commitSeasonMultiplier("spring");
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
                                     className="w-20 border-green-200 focus:border-green-500"
                                 />
                                 <span className="text-sm text-green-600">×</span>
@@ -144,13 +218,16 @@ export default function AppSettingsComponent() {
                                     step="0.1"
                                     min="0.1"
                                     max="3.0"
-                                    value={seasonalSettings.summer.multiplier}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    setSeasonalSettings({
-                                        ...seasonalSettings,
-                                        summer: { ...seasonalSettings.summer, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    })
-                                    }
+                                    value={seasonDrafts.summer}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSeasonDrafts((prev) => ({ ...prev, summer: e.target.value }))}
+                                    onBlur={() => commitSeasonMultiplier("summer")}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            commitSeasonMultiplier("summer");
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
                                     className="w-20 border-orange-200 focus:border-orange-500"
                                 />
                                 <span className="text-sm text-orange-600">×</span>
@@ -172,13 +249,16 @@ export default function AppSettingsComponent() {
                                     step="0.1"
                                     min="0.1"
                                     max="3.0"
-                                    value={seasonalSettings.fall.multiplier}
-                                    onChange={(e) =>
-                                    setSeasonalSettings({
-                                        ...seasonalSettings,
-                                        fall: { ...seasonalSettings.fall, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    })
-                                    }
+                                    value={seasonDrafts.fall}
+                                    onChange={(e) => setSeasonDrafts((prev) => ({ ...prev, fall: e.target.value }))}
+                                    onBlur={() => commitSeasonMultiplier("fall")}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            commitSeasonMultiplier("fall");
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
                                     className="w-20 border-amber-200 focus:border-amber-500"
                                 />
                                 <span className="text-sm text-amber-600">×</span>
@@ -200,13 +280,16 @@ export default function AppSettingsComponent() {
                                     step="0.1"
                                     min="0.1"
                                     max="3.0"
-                                    value={seasonalSettings.winter.multiplier}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                                    setSeasonalSettings({
-                                        ...seasonalSettings,
-                                        winter: { ...seasonalSettings.winter, multiplier: Number.parseFloat(e.target.value) || 1.0 },
-                                    })
-                                    }
+                                    value={seasonDrafts.winter}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSeasonDrafts((prev) => ({ ...prev, winter: e.target.value }))}
+                                    onBlur={() => commitSeasonMultiplier("winter")}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            commitSeasonMultiplier("winter");
+                                            e.currentTarget.blur();
+                                        }
+                                    }}
                                     className="w-20 border-slate-200 focus:border-slate-500"
                                 />
                                 <span className="text-sm text-slate-600">×</span>

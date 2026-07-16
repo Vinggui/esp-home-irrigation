@@ -28,7 +28,7 @@ export default function ManualActivation() {
     if (!zone) return
 
     const newState = !zone.isActive
-    setZoneState(zoneId, newState, zone.manualTimer * 60)
+    setZoneState(zoneId, newState, zone.manualTimer)
   }
 
   useEffect(() => {

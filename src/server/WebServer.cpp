@@ -58,6 +58,24 @@ void WebServer::notifyClients() {
   // m_ws.textAll(String(ledState));
 }
 
+void WebServer::registerStateSnapshotCallback(StateSnapshotCallback cb, void* ctx) {
+  m_stateSnapshotCallback = cb;
+  m_stateSnapshotCtx = ctx;
+}
+
+void WebServer::sendStateSnapshot(AsyncWebSocketClient* client) {
+  if (!m_stateSnapshotCallback || !client) {
+    return;
+  }
+
+  JsonDocument snapshotDoc;
+  m_stateSnapshotCallback(m_stateSnapshotCtx, snapshotDoc);
+
+  String jsonBuffer;
+  serializeJson(snapshotDoc, jsonBuffer);
+  client->text(jsonBuffer);
+}
+
 void WebServer::handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   AwsFrameInfo *info = (AwsFrameInfo*)arg;
     LOG_DEBUG_PGM(webServerLogger, F("MSG received by the WebSocket server"));
@@ -103,6 +121,7 @@ void WebServer::onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, Aw
   switch (type) {
     case WS_EVT_CONNECT:
       LOG_INFO(webServerLogger, "WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      sendStateSnapshot(client);
       break;
     case WS_EVT_DISCONNECT:
       LOG_INFO(webServerLogger, "WebSocket client #%u disconnected\n", client->id());

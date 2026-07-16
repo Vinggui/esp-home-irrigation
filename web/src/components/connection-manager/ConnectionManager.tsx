@@ -87,10 +87,20 @@ export const ConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
+    const hasSettingsPayload =
+      typeof data.water_cost_per_liter === "number" ||
+      (data.seasonal_settings && typeof data.seasonal_settings === "object");
+
+    if (hasSettingsPayload) {
+      console.debug("Received settings update payload:", data);
+      window.dispatchEvent(new CustomEvent("settings:broadcast", { detail: data }));
+    }
+
     const apiData = data.api_data;
-    // Call registered callbacks for this type
-    console.debug(`Received message of type: ${apiData},`, data);
-    callbacks.current.get(apiData)?.forEach((cb: MessageCallback) => cb(data));
+    if (apiData) {
+      console.debug(`Received message of type: ${apiData},`, data);
+      callbacks.current.get(apiData)?.forEach((cb: MessageCallback) => cb(data));
+    }
   };
 
   // Connect on mount

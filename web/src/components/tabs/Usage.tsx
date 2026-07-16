@@ -15,7 +15,7 @@ import { useSeasons } from "../seasons/SeasonManager";
 import { useAppSettings } from "../settings/AppSettingsProvider";
 
 export default function Usage() {
-  const { zones } = useZones();
+  const { zones, resetZoneUsage } = useZones();
 const { currentSeason, getSeasonName, getAdjustedDuration } = useSeasons();
 const { seasonalSettings, waterCostPerLiter, setWaterCostPerLiter } = useAppSettings();
 
@@ -62,10 +62,19 @@ const { seasonalSettings, waterCostPerLiter, setWaterCostPerLiter } = useAppSett
     {zones.map((zone: Zone) => (
         <Card key={zone.id} className="border-blue-200">
         <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-blue-900 flex items-center gap-2">
-            <Droplets className="h-5 w-5" />
-            {zone.name}
+                <Droplets className="h-5 w-5" />
+                {zone.name}
             </CardTitle>
+            <button
+                type="button"
+                onClick={() => resetZoneUsage(zone.id)}
+                className="rounded border border-blue-200 bg-white px-3 py-1 text-sm text-blue-700 hover:bg-blue-50"
+            >
+                Reset Usage
+            </button>
+            </div>
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
