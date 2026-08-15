@@ -2,7 +2,7 @@
 
 #include <NTPClient.h>
 #include <WiFi.h>
-#include <WiFiUDP.h>
+#include <WiFiUdp.h>
 
 #include "logger/Logger.hpp"
 

@@ -350,7 +350,7 @@ void ZoneManager::buildStateSnapshot(JsonDocument &out) {
     winterSettings["multiplier"] = m_winterMultiplier;
     JsonArray zonesArray = out["zones"].to<JsonArray>();
 
-    for (uint8_t i = 0; i < MAX_NUM_ZONES; ++i) {*
+    for (uint8_t i = 0; i < MAX_NUM_ZONES; ++i) {
         if (m_currentActiveZones[i] == 1) {
             JsonDocument zoneData = m_zones[i].toJson();
             zonesArray.add<JsonObject>(zoneData.as<JsonObject>());
