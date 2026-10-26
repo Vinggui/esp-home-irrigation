@@ -6,6 +6,14 @@ import { useSeasons } from "../seasons/SeasonManager";
 import type { DailySchedule } from "../../lib/types";
 import { useAppSettings } from "../settings/AppSettingsProvider";
 
+export interface GateOutput {
+  gate: number;
+  pin: number;
+}
+
+export const getGateForPin = (pinNumber: number, gateOutputs: GateOutput[]): number | undefined =>
+  gateOutputs.find((output) => output.pin === pinNumber)?.gate;
+
 export interface Zone {
     id: number
     name: string
@@ -24,6 +32,7 @@ export interface Zone {
 
 type ZoneContextType = {
   zones: Zone[];
+  gateOutputs: GateOutput[];
   toggleDay: (zoneId: number, scheduleId: string, day: string) => void;
   setZoneState: (zoneId: number, state: boolean, duration: number) => void;
   updateZoneStates: (updates: { zone: number; value: boolean; duration?: number }[]) => void;
@@ -94,6 +103,7 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
   ]);
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [savedZones, setSavedZones] = useState<Zone[]>([]);
+  const [gateOutputs, setGateOutputs] = useState<GateOutput[]>([]);
 
   const cloneZones = (source: Zone[]): Zone[] =>
     source.map((zone) => ({
@@ -160,7 +170,6 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   const removeZone = (zoneId: number) => {
-    if (zones.length <= 1) return
     setZones((prev: Zone[]) => prev.filter((zone) => zone.id !== zoneId))
   }
 
@@ -179,13 +188,20 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
     setZones((prev: Zone[]) => prev.map((zone) => (zone.id === zoneId ? { ...zone, ...updates } : zone)))
   }
 
-  const updateZonePin = (zoneId: number, pinNumber: number) => {
+  const updateZonePin = (zoneId: number, gate: number) => {
+    const output = gateOutputs.find((candidate) => candidate.gate === gate);
+    if (!output) {
+      console.error(`Invalid gate number: ${gate}`);
+      return;
+    }
+
+    const pinNumber = output.pin;
     setZones((prev: Zone[]) => prev.map((zone) => (zone.id === zoneId ? { ...zone, pinNumber } : zone)))
     sendMessage({
       api_handler: "set_zone_state",
       command: "set_zone_output",
       zone: zoneId,
-      pin: pinNumber,
+      gate,
     })
   }
 
@@ -277,6 +293,23 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
+      const parsedGateOutputs: GateOutput[] = [];
+      if (
+        !Array.isArray(data.gate_outputs) ||
+        !data.gate_outputs.every((output: any) => (
+          Number.isInteger(output?.gate) &&
+          output.gate >= 1 &&
+          Number.isInteger(output.pin) &&
+          output.pin >= 0
+        ))
+      ) {
+        console.warn("Received invalid gate wiring in zones update payload", data.gate_outputs);
+        setGateOutputs([]);
+      } else {
+        parsedGateOutputs.push(...data.gate_outputs);
+        setGateOutputs(parsedGateOutputs);
+      }
+
       const parsedZones: Zone[] = data.zones.map((zone: any) => ({
         id: typeof zone.zone_id === "number" ? zone.zone_id : zone.id,
         name: zone.zone_name ?? zone.name ?? `Zone ${zone.zone_id}`,
@@ -309,7 +342,7 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
       console.debug("Received zones update:", parsedZones);
     });
     return () => {
-      unsubscribe(handler);
+      unsubscribe(handler.type, handler.cb);
     };
   }, [subscribe, unsubscribe]);
 
@@ -334,6 +367,9 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
           days_of_week: schedule.days,
         })),
       })),
+      deleted_zones: savedZones
+        .filter((savedZone) => !zones.some((zone) => zone.id === savedZone.id))
+        .map((savedZone) => savedZone.id),
     }
 
     try {
@@ -433,6 +469,7 @@ export const ZoneManager: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <ZoneContext.Provider value={{
       zones,
+      gateOutputs,
       toggleDay,
       setZoneState,
       updateZoneStates,

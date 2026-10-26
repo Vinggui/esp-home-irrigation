@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import type { SeasonalSettings } from "../../lib/types";
 
-const normalizeSeasonalSettings = (value: Partial<SeasonalSettings> | undefined): SeasonalSettings => ({
+const normalizeSeasonalSettings = (value: Partial<SeasonalSettings> | undefined = undefined): SeasonalSettings => ({
   enabled: value?.enabled ?? true,
   spring: {
     multiplier: value?.spring?.multiplier ?? 1.0,
@@ -23,7 +23,7 @@ const normalizeSeasonalSettings = (value: Partial<SeasonalSettings> | undefined)
 
 type AppSettingsContextType = {
     seasonalSettings: SeasonalSettings;
-    setSeasonalSettings: (settings: SeasonalSettings) => void;
+    setSeasonalSettings: (settings: Partial<SeasonalSettings>) => void;
     waterCostPerLiter: number;
     setWaterCostPerLiter: (cost: number) => void;
     showSidebarSettings: boolean;
@@ -44,7 +44,7 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [showSidebarSettings, setShowSidebarSettings] = useState(false);
     const [waterCostPerLiter, setWaterCostPerLiter] = useState(0.005);
 
-    const setSeasonalSettings = (settings: SeasonalSettings) => {
+    const setSeasonalSettings = (settings: Partial<SeasonalSettings>) => {
       setSeasonalSettingsState(normalizeSeasonalSettings(settings));
     };
 

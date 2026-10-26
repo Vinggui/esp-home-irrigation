@@ -42,11 +42,73 @@ ZoneManager::ZoneManager(Web::WebServer& webServer, Scheduler::Scheduler& schedu
     m_webServer.registerStateSnapshotCallback(&zoneStateSnapshotCallback, this);
 }
 
+void ZoneManager::begin() {
+    if (!m_database.begin()) {
+        LOG_ERROR_PGM(zoneManagerLogger, F("Failed to initialize EEPROM database"));
+        return;
+    }
+    loadDatabase();
+}
+
+void ZoneManager::loadDatabase() {
+    JsonDocument stored;
+    if (!m_database.load(stored)) {
+        LOG_INFO_PGM(zoneManagerLogger, F("No valid saved configuration found"));
+        return;
+    }
+
+    m_waterCostPerLiter = stored["water_cost_per_liter"] | m_waterCostPerLiter;
+    JsonObjectConst seasonal = stored["seasonal_settings"].as<JsonObjectConst>();
+    if (seasonal) {
+        m_seasonalSettingsEnabled = seasonal["enabled"] | m_seasonalSettingsEnabled;
+        m_springMultiplier = seasonal["spring"]["multiplier"] | m_springMultiplier;
+        m_summerMultiplier = seasonal["summer"]["multiplier"] | m_summerMultiplier;
+        m_fallMultiplier = seasonal["fall"]["multiplier"] | m_fallMultiplier;
+        m_winterMultiplier = seasonal["winter"]["multiplier"] | m_winterMultiplier;
+    }
+
+    JsonArrayConst zones = stored["zones"].as<JsonArrayConst>();
+    for (JsonObjectConst zone : zones) {
+        uint8_t zoneId = zone["zone_id"] | 255;
+        if (zoneId >= MAX_NUM_ZONES) {
+            continue;
+        }
+        uint8_t outputPin = zone["pin_number"] | AVAILABLE_OUTPUT_PINS[zoneId];
+        bool validOutputPin = false;
+        for (uint8_t allowedPin : AVAILABLE_OUTPUT_PINS) {
+            if (allowedPin == outputPin) {
+                validOutputPin = true;
+                break;
+            }
+        }
+        if (!validOutputPin) {
+            outputPin = AVAILABLE_OUTPUT_PINS[zoneId];
+        }
+        m_currentActiveZones[zoneId] = 1;
+        m_zones[zoneId].loadFromJson(zone);
+        if (!validOutputPin) {
+            m_zones[zoneId].setOutputPin(outputPin);
+        }
+        m_availableOutputPins[zoneId] = outputPin;
+    }
+    LOG_INFO_PGM(zoneManagerLogger, F("Configuration loaded from EEPROM"));
+}
+
+void ZoneManager::saveDatabase() {
+    JsonDocument snapshot;
+    buildStateSnapshot(snapshot);
+    if (!m_database.save(snapshot)) {
+        LOG_ERROR_PGM(zoneManagerLogger, F("Failed to save configuration to EEPROM"));
+    }
+}
+
 bool ZoneManager::registerZone(const JsonDocument &request) {
     // Search for the first available zone slot
     for (uint8_t i = 0; i < MAX_NUM_ZONES; ++i) {
         if (m_currentActiveZones[i] == 0) {
             m_zones[i].cleanData();
+            m_zones[i].setOutputPin(AVAILABLE_OUTPUT_PINS[i]);
+            m_availableOutputPins[i] = AVAILABLE_OUTPUT_PINS[i];
             m_currentActiveZones[i] = 1; // Mark this zone as active
             LOG_INFO(zoneManagerLogger, "Zone %d registered successfully", i);
             return true;
@@ -54,6 +116,25 @@ bool ZoneManager::registerZone(const JsonDocument &request) {
     }
     LOG_ERROR_PGM(zoneManagerLogger, F("No available zones to register"));
     return false;
+}
+
+bool ZoneManager::deleteZone(const JsonDocument &request) {
+    if (!request["zone"].is<uint8_t>()) {
+        LOG_ERROR_PGM(zoneManagerLogger, F("Invalid delete zone request"));
+        return false;
+    }
+
+    const uint8_t zoneIndex = request["zone"];
+    if (zoneIndex >= MAX_NUM_ZONES || m_currentActiveZones[zoneIndex] == 0) {
+        LOG_ERROR(zoneManagerLogger, "Invalid zone number: %d", zoneIndex);
+        return false;
+    }
+
+    m_zones[zoneIndex].cleanData();
+    m_currentActiveZones[zoneIndex] = 0;
+    m_availableOutputPins[zoneIndex] = AVAILABLE_OUTPUT_PINS[zoneIndex];
+    LOG_INFO(zoneManagerLogger, "Zone %d deleted", zoneIndex);
+    return true;
 }
 
 bool ZoneManager::setZoneState(const JsonDocument &request) {
@@ -102,13 +183,24 @@ bool ZoneManager::setZoneName(const JsonDocument &request) {
 }
 
 bool ZoneManager::setZoneOutputPin(const JsonDocument &request) {
-    if (!request["zone"].is<uint8_t>() || !request["pin"].is<uint8_t>()) {
+    if (!request["zone"].is<uint8_t>() ||
+        (!request["gate"].is<uint8_t>() && !request["pin"].is<uint8_t>())) {
         LOG_ERROR_PGM(zoneManagerLogger, F("Invalid set_zone_output request"));
         return false;
     }
 
     uint8_t zoneIndex = request["zone"];
-    uint8_t pinNumber = request["pin"];
+    uint8_t pinNumber = 0;
+    if (request["gate"].is<uint8_t>()) {
+        const uint8_t gate = request["gate"];
+        if (gate < 1 || gate > MAX_NUM_ZONES) {
+            LOG_ERROR(zoneManagerLogger, "Invalid gate number: %d", gate);
+            return false;
+        }
+        pinNumber = AVAILABLE_OUTPUT_PINS[gate - 1];
+    } else {
+        pinNumber = request["pin"];
+    }
     if (zoneIndex >= MAX_NUM_ZONES || m_currentActiveZones[zoneIndex] == 0) {
         LOG_ERROR(zoneManagerLogger, "Invalid zone number: %d", zoneIndex);
         return false;
@@ -220,6 +312,20 @@ bool ZoneManager::saveSchedules(const JsonDocument &request) {
     }
 
     bool anySuccess = false;
+    if (request["deleted_zones"].is<JsonArrayConst>()) {
+        for (JsonVariantConst deletedZone : request["deleted_zones"].as<JsonArrayConst>()) {
+            if (!deletedZone.is<uint8_t>()) {
+                continue;
+            }
+
+            JsonDocument deleteRequest;
+            deleteRequest["zone"] = deletedZone.as<uint8_t>();
+            if (deleteZone(deleteRequest)) {
+                anySuccess = true;
+            }
+        }
+    }
+
     for (JsonVariantConst zoneVar : zonesArray) {
         if (!zoneVar["id"].is<uint8_t>()) {
             continue;
@@ -285,6 +391,9 @@ void ZoneManager::zoneStateApiHandler(const JsonDocument &request) {
     if (request["command"] == "create_new_zone") {
         response = registerZone(request);
         if (response) { m_needsBroadcastUpdate = true; }
+    } else if (request["command"] == "delete_zone") {
+        response = deleteZone(request);
+        if (response) { m_needsBroadcastUpdate = true; }
     } else if (request["command"] == "set_zone_state") {
         response = setZoneState(request);
         if (response) { m_needsBroadcastUpdate = true; }
@@ -325,6 +434,11 @@ void ZoneManager::zoneStateApiHandler(const JsonDocument &request) {
         LOG_ERROR_PGM(zoneManagerLogger, F("Unknown zone command"));
     }
 
+    if (response && request["command"] != "set_zone_state" &&
+        request["command"] != "update_zones") {
+        saveDatabase();
+    }
+
     JsonDocument responseDoc;
     responseDoc["api_response"] = request["command"];
     responseDoc["status"] = response;
@@ -348,6 +462,12 @@ void ZoneManager::buildStateSnapshot(JsonDocument &out) {
     fallSettings["multiplier"] = m_fallMultiplier;
     JsonObject winterSettings = seasonalSettings["winter"].to<JsonObject>();
     winterSettings["multiplier"] = m_winterMultiplier;
+    JsonArray gateOutputs = out["gate_outputs"].to<JsonArray>();
+    for (uint8_t i = 0; i < MAX_NUM_ZONES; ++i) {
+        JsonObject gateOutput = gateOutputs.add<JsonObject>();
+        gateOutput["gate"] = i + 1;
+        gateOutput["pin"] = AVAILABLE_OUTPUT_PINS[i];
+    }
     JsonArray zonesArray = out["zones"].to<JsonArray>();
 
     for (uint8_t i = 0; i < MAX_NUM_ZONES; ++i) {
@@ -374,6 +494,13 @@ void ZoneManager::update() {
             anyZoneActive = true;
             m_zones[i].updateUsage(nowMs, m_waterCostPerLiter);
         }
+    }
+
+    digitalWrite(DEBUG_LED_PIN, anyZoneActive ? HIGH : LOW);
+
+    if (anyZoneActive && (nowMs - m_lastDatabaseSaveMs >= 86400000UL)) {
+        saveDatabase();
+        m_lastDatabaseSaveMs = nowMs;
     }
 
     if (m_needsBroadcastUpdate || (anyZoneActive && (nowMs - m_lastBroadcastMs >= 1000))) {

@@ -193,6 +193,34 @@ void ZoneHandler::setSchedules(const JsonArrayConst &schedules) {
     }
 }
 
+void ZoneHandler::loadFromJson(const JsonObjectConst& data) {
+    if (data["zone_name"].is<const char*>()) {
+        setName(data["zone_name"]);
+    }
+    if (data["pin_number"].is<int>()) {
+        setOutputPin(data["pin_number"]);
+    }
+    if (data["flow_rate"].is<double>() || data["flow_rate"].is<int>()) {
+        setFlowRate(data["flow_rate"].as<double>());
+    }
+    if (data["manual_timer"].is<uint8_t>()) {
+        setManualWateringDuration(data["manual_timer"]);
+    }
+    if (data["schedules"].is<JsonArrayConst>()) {
+        setSchedules(data["schedules"].as<JsonArrayConst>());
+    }
+
+    JsonObjectConst stats = data["stats"].as<JsonObjectConst>();
+    if (stats) {
+        m_totalVolumeLiters = stats["totalVolume"] | 0.0;
+        m_totalCost = stats["totalCost"] | 0.0;
+        m_averageDaily = stats["averageDaily"] | 0.0;
+    }
+    m_isActive = false;
+    m_timerHandler = -1;
+    m_lastUsageSampleMs = 0;
+}
+
 void ZoneHandler::updateUsage(unsigned long nowMs, double waterCostPerLiter) {
     if (!m_isActive) {
         return;

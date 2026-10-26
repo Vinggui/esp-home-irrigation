@@ -4,7 +4,7 @@ type ApiSubscriptHandler = {type: string, cb: MessageCallback};
 
 type WebSocketContextType = {
   sendMessage: (msg: object) => void;
-  subscribe: (type: string, cb: MessageCallback) => void;
+  subscribe: (type: string, cb: MessageCallback) => ApiSubscriptHandler;
   unsubscribe: (type: string, cb: MessageCallback) => void;
   connected: boolean;
   lastSync: Date;
@@ -32,9 +32,9 @@ export const ConnectionManager: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   // Unsubscribe from a message type
-  const unsubscribe = useCallback((handler: ApiSubscriptHandler) => {
+  const unsubscribe = useCallback((type: string, cb: MessageCallback) => {
     // Just process the unsubscribe
-    removeApiSubscription(handler.type, handler.cb);
+    removeApiSubscription(type, cb);
   }, []);
 
   const removeApiSubscription = useCallback((type: string, cb: MessageCallback) => {

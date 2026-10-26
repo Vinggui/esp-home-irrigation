@@ -8,7 +8,6 @@
 #include "zone/ZoneManager.hpp"
 #include "scheduler/Scheduler.hpp"
 
-#define LED 2
 #define MAX_ZONES 4
 
 // Replace with your network credentials (or use src/secrets.h)
@@ -26,21 +25,23 @@ void setup() {
     Log::begin(115200);
 
     // put your setup code here, to run once:
-    pinMode(LED, OUTPUT);
+    pinMode(DEBUG_LED_PIN, OUTPUT);
    
     // Connect to Wi-Fi
     WiFi.begin(ssid, password);
     int counter = 0;
     while (WiFi.status() != WL_CONNECTED) {
-      digitalWrite(LED, HIGH);
+      digitalWrite(DEBUG_LED_PIN, HIGH);
       delay(100);
-      digitalWrite(LED, LOW);
+      digitalWrite(DEBUG_LED_PIN, LOW);
       delay(100);
       if (counter++ % 5 == 0) {
         LOG_INFO_PGM(mainLogger, F("Connecting to WiFi.."));
       }
     }
-    digitalWrite(LED, HIGH);
+    digitalWrite(DEBUG_LED_PIN, HIGH);
+
+    zoneManager.begin();
 
     // Print ESP Local IP Address
     LOG_INFO_PGM(mainLogger, WiFi.localIP());
@@ -51,7 +52,7 @@ void setup() {
     // Retrieve and set the current local time via NTP
     WiFiClient wifiClient;
     scheduler.begin(wifiClient);
-    digitalWrite(LED, LOW);
+    digitalWrite(DEBUG_LED_PIN, LOW);
 }
 
 void loop() {

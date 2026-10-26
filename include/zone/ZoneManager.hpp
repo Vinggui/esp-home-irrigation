@@ -7,6 +7,7 @@
 #include "ZoneHandler.hpp"
 #include "contants/globals.hpp"
 #include "server/WebServer.hpp"
+#include "localDB/LocalDB.hpp"
 
 namespace Zone {
 
@@ -15,8 +16,10 @@ LOG_NAME(zoneManagerLogger, "ZoneManager");
 class ZoneManager {
 public:
     ZoneManager(Web::WebServer& webServer, Scheduler::Scheduler& scheduler);
+    void begin();
     void zoneStateApiHandler(const JsonDocument &request);
     bool registerZone(const JsonDocument &request);
+    bool deleteZone(const JsonDocument &request);
     bool setZoneState(const JsonDocument &request);
     bool setZoneName(const JsonDocument &request);
     bool setZoneOutputPin(const JsonDocument &request);
@@ -34,9 +37,12 @@ public:
 private:
     
     void SendBroadcastUpdate();
+    void saveDatabase();
+    void loadDatabase();
 
     Web::WebServer& m_webServer;
     Scheduler::Scheduler& m_scheduler;
+    LocalDB::Database m_database;
     ZoneHandler m_zones[MAX_NUM_ZONES];
     uint8_t m_availableOutputPins[MAX_NUM_ZONES];
     uint8_t m_currentActiveZones[MAX_NUM_ZONES];
@@ -48,6 +54,7 @@ private:
     double m_fallMultiplier{0.8};
     double m_winterMultiplier{0.4};
     bool m_needsBroadcastUpdate;
+    unsigned long m_lastDatabaseSaveMs{0};
 };
 
 }; // namespace Zone

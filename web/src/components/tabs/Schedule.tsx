@@ -16,17 +16,28 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import type { Zone } from "../zones/ZoneManager";
+import { getGateForPin, type Zone } from "../zones/ZoneManager";
 import { useZones } from "../zones/ZoneManager";
 import { useSeasons } from "../seasons/SeasonManager";
 import type { DailySchedule } from "../../lib/types";
 import { useAppSettings } from "../settings/AppSettingsProvider";
 import { useScheduleDirty } from "../../App";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 
 export default function Schedule() {
   const [conflicts, setConflicts] = useState<string[]>([])
   const [nameDrafts, setNameDrafts] = useState<Record<number, string>>({})
   const { zones,
+          gateOutputs,
           addZone,
           removeZone,
           updateZone, 
@@ -51,6 +62,7 @@ export default function Schedule() {
   const { seasonalSettings } = useAppSettings();
   const [hasLocalChanges, setHasLocalChanges] = useState(false);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string>("");
+  const [zoneToDelete, setZoneToDelete] = useState<Zone | null>(null);
 
   const buildCurrentSnapshot = (sourceZones: Zone[] = zones) =>
     JSON.stringify({
@@ -204,8 +216,6 @@ export default function Schedule() {
     setDirty(isModified);
   }, [zones, seasonalSettings, currentSeason, lastSavedSnapshot, setDirty]);
 
-  const availablePins = [2, 17, 18, 19];
-
   const dayOptions = [
     { value: "mon", label: "Mon", Name: "Monday" },
     { value: "tue", label: "Tue", Name: "Tuesday" },
@@ -329,28 +339,34 @@ export default function Schedule() {
                 <Plus className="h-4 w-4 mr-1" />
                 Add Schedule
               </Button>
-              {zones.length > 1 && (
-                <Button onClick={() => removeZone(zone.id)} size="sm" variant="destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+              <Button
+                onClick={() => setZoneToDelete(zone)}
+                size="sm"
+                variant="destructive"
+                aria-label={`Delete ${zone.name}`}
+                title={`Delete ${zone.name}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
 
           {/* Flow Rate Setting */}
           <div className="mt-3 flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Label className="text-blue-800">Output Pin:</Label>
+              <Label className="text-blue-800">Control:</Label>
               <select
-                value={zone.pinNumber}
+                value={getGateForPin(zone.pinNumber, gateOutputs) ?? ""}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateZonePin(zone.id, Number(e.target.value))}
+                disabled={gateOutputs.length === 0}
                 className="rounded border border-blue-200 bg-white px-2 py-1 text-sm text-blue-900"
               >
-                {availablePins
-                  .filter((pin) => pin === zone.pinNumber || !zones.some((other: Zone) => other.id !== zone.id && other.pinNumber === pin))
-                  .map((pin) => (
-                    <option key={pin} value={pin}>
-                      GPIO {pin}
+                <option value="" disabled>Select a gate</option>
+                {gateOutputs
+                  .filter((output) => output.gate === getGateForPin(zone.pinNumber, gateOutputs) || !zones.some((other: Zone) => other.id !== zone.id && other.pinNumber === output.pin))
+                  .map((output) => (
+                    <option key={output.gate} value={output.gate}>
+                      Gate {output.gate}
                     </option>
                   ))}
               </select>
@@ -486,8 +502,33 @@ export default function Schedule() {
       disabled={conflicts.length > 0 || !isDirty}
       className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-green-400"
     >
-      {conflicts.length > 0 ? "Resolve Conflicts First" : isDirty ? "Save All Schedules" : "No Changes to Save"}
+      {conflicts.length > 0 ? "Resolve Conflicts First" : isDirty ? "Save all schedules" : "No changes to save"}
     </Button>
+
+    <AlertDialog open={zoneToDelete !== null} onOpenChange={(open) => !open && setZoneToDelete(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {zoneToDelete?.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently remove the zone, its schedules, and its usage statistics from the controller.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-red-600 hover:bg-red-700"
+            onClick={() => {
+              if (zoneToDelete) {
+                removeZone(zoneToDelete.id);
+              }
+              setZoneToDelete(null);
+            }}
+          >
+            Delete Zone
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

@@ -21,6 +21,7 @@ public:
     void setFlowRate(double flowRate);
     void setOutputPin(int pinNumber);
     void setSchedules(const JsonArrayConst &schedules);
+    void loadFromJson(const JsonObjectConst& data);
     void updateUsage(unsigned long nowMs, double waterCostPerLiter);
     void resetUsage();
     uint8_t getManualWateringDuration() const;
